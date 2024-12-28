@@ -1,7 +1,12 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+require('dotenv').config();
+
 const candidateRoutes = require('./routes/candidateRoutes');
+const questionRoutes = require('./routes/questionRoutes');
+const jobRoutes = require('./routes/jobRoutes');
+const assessmentRoutes = require('./routes/assessmentRoutes');
 
 const app = express();
 
@@ -11,9 +16,12 @@ app.use(express.json());
 
 // Routes
 app.use('/api/candidates', candidateRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/assessments', assessmentRoutes);
 
 // MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/smartselect';
+const MONGODB_URI = process.env.MONGODB_URI;
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch((err) => console.error('MongoDB connection error:', err));
