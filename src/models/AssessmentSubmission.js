@@ -40,12 +40,7 @@ const assessmentSubmissionSchema = new mongoose.Schema({
   },
   candidateId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  jobId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Job',
+    ref: 'Candidate',
     required: true
   },
   status: {
@@ -55,6 +50,7 @@ const assessmentSubmissionSchema = new mongoose.Schema({
   },
   rounds: [roundSubmissionSchema],
   startedAt: Date,
+  interviewDate: Date,
   completedAt: Date,
   overallScore: Number,
   result: {
@@ -75,7 +71,6 @@ const assessmentSubmissionSchema = new mongoose.Schema({
 
 // Indexes for better query performance
 assessmentSubmissionSchema.index({ assessmentId: 1, candidateId: 1 });
-assessmentSubmissionSchema.index({ jobId: 1, status: 1 });
 assessmentSubmissionSchema.index({ candidateId: 1, completedAt: -1 });
 
 const AssessmentSubmission = mongoose.model('AssessmentSubmission', assessmentSubmissionSchema);

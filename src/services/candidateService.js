@@ -22,6 +22,10 @@ class CandidateService {
     const result = await CandidateModel.findByIdAndDelete(id);
     return result !== null;
   }
+
+  async getCandidateByEmail(email) {
+    return await CandidateModel.findOne({ email });
+  }
 }
 
 module.exports = CandidateService; 

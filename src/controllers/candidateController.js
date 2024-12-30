@@ -1,4 +1,5 @@
 const CandidateService = require('../services/candidateService');
+const bcrypt = require('bcryptjs');
 
 class CandidateController {
   constructor() {
@@ -32,7 +33,7 @@ class CandidateController {
       const newCandidate = await this.candidateService.createCandidate(req.body);
       res.status(201).json(newCandidate);
     } catch (error) {
-      res.status(500).json({ error: 'Failed to create candidate' });
+      res.status(500).json({ error: error.message });
     }
   };
 
@@ -62,6 +63,33 @@ class CandidateController {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: 'Failed to delete candidate' });
+    }
+  };
+
+  loginCandidate = async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      // Validate input
+      if (!email || !password) {
+        return res.status(400).json({ 
+          error: 'Email and password are required' 
+        });
+      }
+
+      // Find candidate by email
+      const candidate = await this.candidateService.getCandidateByEmail(email);
+      if (!candidate || candidate.password !== password) {
+        return res.status(401).json({ 
+          error: 'Invalid credentials' 
+        });
+      }
+
+      // Return candidate data without password
+      const { password: _, ...candidateData } = candidate.toObject();
+      res.status(200).json(candidateData);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
   };
 }

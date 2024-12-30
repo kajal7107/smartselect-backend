@@ -9,31 +9,41 @@ class AiService {
     this.deploymentId = process.env.AZURE_OPENAI_DEPLOYMENT_ID;
   }
 
-  async generateQuestions(text, questionType, description, numberOfQuestions) {
+  async generateQuestions(text, questionConfig) {
     try {
-      let prompt;
-      switch (questionType) {
-        case 'mcq':
-          prompt = `Generate ${numberOfQuestions} multiple choice questions based on this content. Return response in valid JSON array format without any markdown formatting or code blocks. Each question object should have: question (string), options (array of strings), and correctAnswer (string matching one of the options).`;
-          break;
-        case 'short_answer':
-          prompt = `Generate ${numberOfQuestions} short answer questions based on this content. Return response in valid JSON array format without any markdown formatting or code blocks. Each question object should have: question (string) and sampleAnswer (string).`;
-          break;
-        case 'coding':
-          prompt = `Generate ${numberOfQuestions} coding questions based on this content. Return response in valid JSON array format without any markdown formatting or code blocks. Each question object should have: question (string), sampleSolution (string), and testCases (array of objects with input and expectedOutput).`;
-          break;
+      const { 
+        mcq = 0, 
+        short_ans = 0, 
+        coding = 0, 
+        difficulty_level = 3,
+        description = ''
+      } = questionConfig;
+      
+      if (difficulty_level < 1 || difficulty_level > 5) {
+        throw new Error('Difficulty level must be between 1 and 5');
       }
 
-      if (description) {
-        prompt += ` Additional instructions: ${description}`;
-      }
+      const prompt = `Generate a set of questions based on the following content. The response should be in valid JSON format with the following specifications:
 
-      prompt += `\n\nContent: ${text}\n\nRespond only with the JSON array, no other text.`;
+      - Generate ${mcq} MCQ questions
+      - Generate ${short_ans} short answer questions
+      - Generate ${coding} coding questions
+      - Difficulty level: ${difficulty_level} (on a scale of 1-5)
+      ${description ? `\nAdditional requirements: ${description}` : ''}
+
+      Each question should follow this format:
+      - MCQ: { type: "mcq", question: string, points: 10, options: [{ text: string, isCorrect: boolean }] }
+      - Short Answer: { type: "short_answer", question: string, points: 10, expectedAnswer: string }
+      - Coding: { type: "coding", question: string, points: 10, codeTemplate: string }
+
+      Content: ${text}
+
+      Return only the JSON array of questions.`;
 
       const messages = [
         { 
           role: "system", 
-          content: "You are an AI assistant that generates high-quality assessment questions. Always respond with valid JSON arrays containing question objects."
+          content: "You are an AI assistant that generates assessment questions. Always respond with valid JSON arrays."
         },
         { 
           role: "user", 
@@ -47,8 +57,6 @@ class AiService {
       );
 
       const content = response.choices[0].message.content;
-      
-      // Clean up the response to ensure valid JSON
       const cleanContent = content.replace(/```json\n|\n```|```/g, '').trim();
       
       try {

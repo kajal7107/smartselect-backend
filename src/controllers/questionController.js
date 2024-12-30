@@ -11,17 +11,12 @@ class QuestionController {
 
   generateQuestions = async (req, res) => {
     try {
-      const { questionType, description, numberOfQuestions = 5, content } = req.body;
+      const { mcq, short_ans, coding, difficulty_level, content, description } = req.body;
       
-      if (!questionType || !['mcq', 'short_answer', 'coding'].includes(questionType)) {
-        return res.status(400).json({ 
-          error: 'Invalid question type. Must be one of: mcq, short_answer, coding' 
-        });
-      }
-
-      if (numberOfQuestions < 1 || numberOfQuestions > 20) {
+      // Validate inputs
+      if (difficulty_level && (difficulty_level < 1 || difficulty_level > 5)) {
         return res.status(400).json({
-          error: 'Number of questions must be between 1 and 20'
+          error: 'Difficulty level must be between 1 and 5'
         });
       }
 
@@ -29,8 +24,8 @@ class QuestionController {
       let text;
       if (req.file?.buffer) {
         text = await this.pdfService.extractTextFromPdf(req.file.buffer);
-      } else if (req.body.content) {
-        text = req.body.content;
+      } else if (content) {
+        text = content;
       } else {
         return res.status(400).json({ 
           error: 'Either PDF file or content field must be provided in form-data' 
@@ -38,7 +33,13 @@ class QuestionController {
       }
       
       // Generate questions using Azure OpenAI
-      const questions = await this.aiService.generateQuestions(text, questionType, description, numberOfQuestions);
+      const questions = await this.aiService.generateQuestions(text, {
+        mcq: parseInt(mcq) || 0,
+        short_ans: parseInt(short_ans) || 0,
+        coding: parseInt(coding) || 0,
+        difficulty_level: parseInt(difficulty_level) || 3,
+        description: description || ''
+      });
 
       res.status(200).json({ questions });
     } catch (error) {

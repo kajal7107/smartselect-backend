@@ -7,6 +7,7 @@ const candidateRoutes = require('./routes/candidateRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
+const assessmentSubmissionRoutes = require('./routes/assessmentSubmissionRoutes');
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use('/api/candidates', candidateRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/assessments', assessmentRoutes);
+app.use('/api/submissions', assessmentSubmissionRoutes);
 
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI;
