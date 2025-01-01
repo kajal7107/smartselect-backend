@@ -5,12 +5,12 @@ const answerSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     required: true 
   },
-  selectedOption: String, // for MCQ
-  writtenAnswer: String, // for short answer
-  submittedCode: String, // for coding
+  selectedOption: String,
+  writtenAnswer: String,
+  submittedCode: String,
   isCorrect: Boolean,
   score: Number,
-  timeSpent: Number, // in minutes
+  timeSpent: Number,
   feedback: String
 }, { timestamps: true });
 
@@ -19,9 +19,56 @@ const roundSubmissionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     required: true 
   },
+  questionRoundId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true
+  },
+  title: { type: String, required: true },
+  description: { type: String },
+  type: { 
+    type: String, 
+    enum: ['written', 'interview'], 
+    required: true 
+  },
+  duration: { type: Number, required: true },
+  passingScore: Number,
+  interviewGuidelines: String,
+  status: {
+    type: String,
+    enum: ['not_started', 'active', 'completed', 'failed', 'feedback_pending'],
+    default: 'not_started'
+  },
+  isCurrentRound: {
+    type: Boolean,
+    default: false
+  },
+  roundScheduledAt: Date,
   startedAt: Date,
   completedAt: Date,
-  answers: [answerSchema],
+  answers: [{
+    questionId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      required: true 
+    },
+    type: { 
+      type: String, 
+      enum: ['mcq', 'short_answer', 'coding'],
+      required: true 
+    },
+    question: { type: String, required: true },
+    points: { type: Number, required: true },
+    options: [{
+      text: { type: String },
+      isCorrect: { type: Boolean }
+    }],
+    selectedOption: { type: String },
+    writtenAnswer: String,
+    submittedCode: String,
+    isCorrect: Boolean,
+    score: Number,
+    timeSpent: Number,
+    feedback: String
+  }],
   score: Number,
   feedback: {
     interviewer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -67,6 +114,12 @@ const assessmentSubmissionSchema = new mongoose.Schema({
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
+});
+
+// Add this to debug validation issues
+assessmentSubmissionSchema.pre('save', function(next) {
+  console.log('Saving submission:', this);
+  next();
 });
 
 // Indexes for better query performance

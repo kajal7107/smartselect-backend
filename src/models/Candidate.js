@@ -20,6 +20,19 @@ const CandidateSchema = new mongoose.Schema({
       'confirmation_pending',
       'shortlisted'
     ]
+  },
+  currentRound: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AssessmentSubmission.rounds'
+  },
+  nextRoundId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AssessmentSubmission.rounds',
+    default: null
+  },
+  isLastRound: {
+    type: Boolean,
+    default: false
   }
 });
 

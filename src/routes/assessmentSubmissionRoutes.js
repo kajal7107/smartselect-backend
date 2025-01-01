@@ -4,14 +4,21 @@ const AssessmentSubmissionController = require('../controllers/assessmentSubmiss
 const router = Router();
 const submissionController = new AssessmentSubmissionController();
 
-// CRUD routes
+// Round-specific routes (should come first)
+router.get('/:submissionId/current-round', submissionController.getCurrentRound);
+router.get('/:submissionId/rounds/:roundId', submissionController.getRound);
+router.put('/:submissionId/rounds/:roundId', submissionController.updateRound);
+router.put('/:submissionId/rounds/:roundId/answers', submissionController.submitRoundAnswers);
+router.post('/:submissionId/schedule-next-round', submissionController.scheduleNextRound);
+
+// Candidate-specific routes
+router.get('/candidate/:candidateId', submissionController.getSubmissionsByCandidate);
+
+// Generic CRUD routes
 router.post('/', submissionController.createSubmission);
 router.get('/', submissionController.getAllSubmissions);
 router.get('/:id', submissionController.getSubmissionById);
 router.put('/:id', submissionController.updateSubmission);
-
-// Additional routes
-router.get('/candidate/:candidateId', submissionController.getSubmissionsByCandidate);
 router.post('/:id/round', submissionController.submitRoundAnswers);
 router.post('/:id/complete', submissionController.completeSubmission);
 router.post('/:id/feedback', submissionController.addFeedback);
