@@ -68,6 +68,73 @@ class AiService {
       throw new Error(`Question generation failed: ${error.message}`);
     }
   }
+
+  assessAnswers = async (answers) => {
+    try {
+      // Process each answer based on type
+      const assessments = await Promise.all(answers.map(async answer => {
+        let score = 0;
+
+        try {
+          switch (answer.type) {
+            case 'mcq':
+              // For MCQ, exact match with expected answer
+              score = (answer.submittedAnswer === answer.expectedAnswer) ? answer.points : 0;
+              break;
+
+            case 'short_answer':
+              // For now, assign 50% of points for any answer
+              score = Math.floor(answer.points * 0.5);
+              break;
+
+            case 'coding':
+              // For now, assign 50% of points for any code submission
+              score = Math.floor(answer.points * 0.5);
+              break;
+
+            default:
+              score = 0;
+          }
+
+          return {
+            questionId: answer.questionId,
+            score: score
+          };
+        } catch (error) {
+          console.error(`Error assessing answer ${answer.questionId}:`, error);
+          return {
+            questionId: answer.questionId,
+            score: 0
+          };
+        }
+      }));
+
+      // Filter out any null results and ensure we have valid scores
+      return assessments.filter(assessment => 
+        assessment && 
+        assessment.questionId && 
+        typeof assessment.score === 'number'
+      );
+
+    } catch (error) {
+      console.error('Assessment Error:', error);
+      return answers.map(answer => ({
+        questionId: answer.questionId,
+        score: 0
+      }));
+    }
+  };
+
+  // Add AI evaluation methods here
+  evaluateShortAnswer = async (question, expected, submitted, maxPoints) => {
+    // Implement AI evaluation for short answers
+    // Return score and feedback
+  };
+
+  evaluateCode = async (question, expected, submitted, maxPoints) => {
+    // Implement AI evaluation for code
+    // Return score and feedback
+  };
 }
 
 module.exports = AiService; 

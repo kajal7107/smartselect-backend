@@ -1,9 +1,14 @@
 const AssessmentSubmission = require('../models/AssessmentSubmission');
 const Assessment = require('../models/Assessment');
 const Candidate = require('../models/Candidate');
+const AIService = require('../services/aiService');
 const mongoose = require('mongoose');
 
 class AssessmentSubmissionController {
+  constructor() {
+    this.aiService = new AIService();
+  }
+
   // Create a new submission
   createSubmission = async (req, res) => {
     try {
@@ -197,7 +202,7 @@ class AssessmentSubmissionController {
   submitRoundAnswers = async (req, res) => {
     try {
       const { submissionId, roundId } = req.params;
-      const { answers } = req.body;
+      const { answers, interviewFeedback } = req.body;
 
       const submission = await AssessmentSubmission.findById(submissionId);
       if (!submission) {
@@ -211,6 +216,32 @@ class AssessmentSubmissionController {
 
       if (!round.isCurrentRound) {
         return res.status(400).json({ error: 'This round is not currently active' });
+      }
+
+      // Check if it's an interview round
+      if (round.type === 'interview') {
+        if (!interviewFeedback) {
+          return res.status(400).json({ error: 'Interview feedback is required' });
+        }
+
+        // For interview rounds, update the status and save feedback
+        round.status = 'feedback_pending';
+        
+        // Update candidate status and feedback
+        await Candidate.findByIdAndUpdate(
+          submission.candidateId,
+          { 
+            status: 'feedback_pending',
+            currentRound: roundId,
+            nextRoundId: null, // Will be set when feedback is given
+            isLastRound: false, // Will be determined when feedback is given
+            interviewFeedback: interviewFeedback // Save the interview feedback
+          },
+          { new: true }
+        );
+
+        await submission.save();
+        return res.status(200).json(round);
       }
 
       // Validate answers
@@ -386,25 +417,59 @@ class AssessmentSubmissionController {
         return res.status(404).json({ error: 'Round not found' });
       }
 
-      // Update round data
+      // Update round data (excluding feedback if not provided)
+      if (updateData.feedback) {
+        submission.rounds[roundIndex].feedback = {
+          ...submission.rounds[roundIndex].feedback,
+          ...updateData.feedback
+        };
+        delete updateData.feedback;
+      }
       Object.assign(submission.rounds[roundIndex], updateData);
 
-      // If marking round as completed, update isCurrentRound flags
+      // If marking round as completed
       if (updateData.status === 'completed') {
+        // Update current round
         submission.rounds[roundIndex].isCurrentRound = false;
         submission.rounds[roundIndex].completedAt = new Date();
 
         // Set next round as current if available
         if (roundIndex + 1 < submission.rounds.length) {
-          submission.rounds[roundIndex + 1].isCurrentRound = true;
-          submission.rounds[roundIndex + 1].status = 'active';
-          submission.rounds[roundIndex + 1].roundScheduledAt = updateData.nextRoundDate || null;
+          const nextRound = submission.rounds[roundIndex + 1];
+          nextRound.isCurrentRound = true;
+          nextRound.status = 'active';
+          nextRound.roundScheduledAt = updateData.nextRoundDate || null;
+
+          // Update candidate status and round info
+          await Candidate.findByIdAndUpdate(
+            submission.candidateId,
+            {
+              status: 'scheduled',
+              currentRound: nextRound._id,
+              nextRoundId: roundIndex + 2 < submission.rounds.length ? submission.rounds[roundIndex + 2]._id : null,
+              isLastRound: roundIndex + 1 === submission.rounds.length - 1
+            },
+            { new: true }
+          );
+        } else {
+          // If this was the last round
+          await Candidate.findByIdAndUpdate(
+            submission.candidateId,
+            {
+              status: 'confirmation_pending',
+              currentRound: roundId,
+              nextRoundId: null,
+              isLastRound: true
+            },
+            { new: true }
+          );
         }
       }
 
       await submission.save();
       res.status(200).json(submission.rounds[roundIndex]);
     } catch (error) {
+      console.error('Error in updateRound:', error);
       res.status(400).json({ error: error.message });
     }
   };
@@ -436,6 +501,66 @@ class AssessmentSubmissionController {
       res.status(200).json(nextRound);
     } catch (error) {
       res.status(400).json({ error: error.message });
+    }
+  };
+
+  // AI Assessment of round answers
+  assessRoundWithAI = async (req, res) => {
+    try {
+      const { submissionId, roundId } = req.params;
+
+      const submission = await AssessmentSubmission.findById(submissionId);
+      if (!submission) {
+        return res.status(404).json({ error: 'Submission not found' });
+      }
+
+      const round = submission.rounds.find(r => r._id.toString() === roundId);
+      if (!round) {
+        return res.status(404).json({ error: 'Round not found' });
+      }
+
+      // Prepare answers for AI assessment
+      const answersForAssessment = round.answers.map(answer => ({
+        questionId: answer.questionId,
+        type: answer.type,
+        question: answer.question,
+        expectedAnswer: answer.expectedAnswer,
+        submittedAnswer: answer.type === 'mcq' ? answer.selectedOption :
+                        answer.type === 'short_answer' ? answer.writtenAnswer :
+                        answer.submittedCode,
+        points: answer.points
+      })).filter(answer => answer.submittedAnswer); // Only assess answers that have been submitted
+
+      if (answersForAssessment.length === 0) {
+        return res.status(400).json({ error: 'No answers to assess' });
+      }
+
+      // Call AI service to assess answers
+      const aiAssessment = await this.aiService.assessAnswers(answersForAssessment);
+      
+      if (!aiAssessment || !Array.isArray(aiAssessment)) {
+        throw new Error('Invalid assessment result from AI service');
+      }
+
+      // Format response to only include questionId and score, handling potential undefined values
+      const scores = aiAssessment
+        .filter(assessment => assessment && assessment.questionId) // Filter out invalid assessments
+        .map(assessment => ({
+          questionId: assessment.questionId,
+          score: assessment.score || 0 // Default to 0 if score is undefined
+        }));
+
+      if (scores.length === 0) {
+        return res.status(400).json({ error: 'No valid scores generated' });
+      }
+
+      res.status(200).json(scores);
+    } catch (error) {
+      console.error('Error in AI assessment:', error);
+      res.status(500).json({ 
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   };
 }

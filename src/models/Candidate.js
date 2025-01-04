@@ -8,6 +8,7 @@ const CandidateSchema = new mongoose.Schema({
   appliedDate: { type: Date, default: Date.now },
   assessment: { type: mongoose.Schema.Types.ObjectId, ref: 'Assessment' },
   assessmentSubmission: { type: mongoose.Schema.Types.ObjectId, ref: 'AssessmentSubmission' },
+  interviewFeedback: {type: String},
   interviewDate: { type: Date },
   password: { type: String },
   status: { 

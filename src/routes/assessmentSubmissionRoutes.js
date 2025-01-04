@@ -23,4 +23,7 @@ router.post('/:id/round', submissionController.submitRoundAnswers);
 router.post('/:id/complete', submissionController.completeSubmission);
 router.post('/:id/feedback', submissionController.addFeedback);
 
+// AI Assessment routes
+router.post('/:submissionId/rounds/:roundId/assess', submissionController.assessRoundWithAI);
+
 module.exports = router; 
