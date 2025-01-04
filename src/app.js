@@ -8,12 +8,16 @@ const questionRoutes = require('./routes/questionRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
 const assessmentSubmissionRoutes = require('./routes/assessmentSubmissionRoutes');
+const healthRoutes = require('./routes/healthRoutes');
 
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Health check route (should be first)
+app.use('/api/health', healthRoutes);
 
 // Routes
 app.use('/api/candidates', candidateRoutes);
