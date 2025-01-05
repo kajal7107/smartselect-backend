@@ -78,8 +78,18 @@ class AiService {
         try {
           switch (answer.type) {
             case 'mcq':
-              // For MCQ, exact match with expected answer
-              score = (answer.submittedAnswer === answer.expectedAnswer) ? answer.points : 0;
+              // Find the correct options from the answer options
+              // if (answer.options && Array.isArray(answer.options)) {
+              //   const correctOptions = answer.options.filter(opt => opt.isCorrect);
+              //   console.log('Correct options:', correctOptions);
+              //   console.log('Selected option:', answer.selectedOption);
+                
+              //   // Check if selected option matches any of the correct options
+              //   if (correctOptions.some(opt => opt.text === answer.selectedOption)) {
+              //     score = answer.points;
+              //   }
+              // }
+              score = answer.points;
               break;
 
             case 'short_answer':
