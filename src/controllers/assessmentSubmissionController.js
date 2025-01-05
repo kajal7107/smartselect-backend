@@ -109,7 +109,7 @@ class AssessmentSubmissionController {
       console.log('Submission saved successfully:', savedSubmission._id);
 
       // Update candidate
-      const updatedCandidate = await Candidate.findByIdAndUpdate(
+      await Candidate.findByIdAndUpdate(
         candidate._id,
         {
           status: 'scheduled',
@@ -227,15 +227,18 @@ class AssessmentSubmissionController {
         // For interview rounds, update the status and save feedback
         round.status = 'feedback_pending';
         
+        // Check if this is the last round
+        const isLastRound = submission.rounds.indexOf(round) === submission.rounds.length - 1;
+        
         // Update candidate status and feedback
         await Candidate.findByIdAndUpdate(
           submission.candidateId,
           { 
-            status: 'feedback_pending',
+            status: isLastRound ? 'confirmation_pending' : 'feedback_pending',
             currentRound: roundId,
-            nextRoundId: null, // Will be set when feedback is given
-            isLastRound: false, // Will be determined when feedback is given
-            interviewFeedback: interviewFeedback // Save the interview feedback
+            nextRoundId: null,
+            isLastRound: isLastRound,
+            interviewFeedback: interviewFeedback
           },
           { new: true }
         );
@@ -244,16 +247,17 @@ class AssessmentSubmissionController {
         return res.status(200).json(round);
       }
 
+      // For non-interview rounds...
       // Validate answers
       if (!Array.isArray(answers)) {
         return res.status(400).json({ error: 'Answers must be an array' });
       }
 
-      // Update only the provided fields in answers
+      // Update answers...
       round.answers = round.answers.map(existingAnswer => {
         const newAnswer = answers.find(a => a.questionId.toString() === existingAnswer.questionId.toString());
         if (newAnswer) {
-          // For MCQ answers, validate that the selectedOption matches one of the available options
+          // MCQ validation...
           if (existingAnswer.type === 'mcq' && newAnswer.selectedOption) {
             const isValidOption = existingAnswer.options.some(
               option => option.text === newAnswer.selectedOption
@@ -263,7 +267,6 @@ class AssessmentSubmissionController {
             }
           }
 
-          // Only update fields that are provided in newAnswer
           return Object.keys(newAnswer).reduce((updated, key) => {
             if (newAnswer[key] !== undefined) {
               updated[key] = newAnswer[key];
@@ -274,24 +277,19 @@ class AssessmentSubmissionController {
         return existingAnswer;
       });
 
-      // Set round status to feedback_pending
       round.status = 'feedback_pending';
-
-      // Save the submission first
       await submission.save();
 
       // Check if this is the last round
       const currentRoundIndex = submission.rounds.indexOf(round);
       const isLastRound = currentRoundIndex === submission.rounds.length - 1;
-
-      // Get next round ID if it exists
       const nextRoundId = isLastRound ? null : submission.rounds[currentRoundIndex + 1]._id;
 
-      // Update candidate status, current round, next round, and isLastRound
+      // Update candidate status
       await Candidate.findByIdAndUpdate(
         submission.candidateId,
         { 
-          status: 'feedback_pending',
+          status: isLastRound ? 'confirmation_pending' : 'feedback_pending',
           currentRound: roundId,
           nextRoundId: nextRoundId,
           isLastRound: isLastRound
@@ -452,11 +450,11 @@ class AssessmentSubmissionController {
             { new: true }
           );
         } else {
-          // If this was the last round
+          // If this was the last round, set status to shortlisted
           await Candidate.findByIdAndUpdate(
             submission.candidateId,
             {
-              status: 'confirmation_pending',
+              status: 'shortlisted',
               currentRound: roundId,
               nextRoundId: null,
               isLastRound: true

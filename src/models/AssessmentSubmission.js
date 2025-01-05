@@ -5,6 +5,21 @@ const answerSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     required: true 
   },
+  type: { 
+    type: String, 
+    enum: ['mcq', 'short_answer', 'coding'],
+    required: true 
+  },
+  question: { type: String, required: true },
+  points: { type: Number, required: true },
+  options: [{
+    text: { type: String },
+    isCorrect: { type: Boolean }
+  }],
+  expectedAnswer: String,
+  codeTemplate: String,
+  description: String,
+  timeLimit: Number,
   selectedOption: String,
   writtenAnswer: String,
   submittedCode: String,
@@ -12,9 +27,9 @@ const answerSchema = new mongoose.Schema({
   score: Number,
   timeSpent: Number,
   feedback: String
-}, { timestamps: true });
+});
 
-const roundSubmissionSchema = new mongoose.Schema({
+const roundSchema = new mongoose.Schema({
   roundId: { 
     type: mongoose.Schema.Types.ObjectId, 
     required: true 
@@ -24,7 +39,7 @@ const roundSubmissionSchema = new mongoose.Schema({
     required: true
   },
   title: { type: String, required: true },
-  description: { type: String },
+  description: String,
   type: { 
     type: String, 
     enum: ['written', 'interview'], 
@@ -38,46 +53,20 @@ const roundSubmissionSchema = new mongoose.Schema({
     enum: ['not_started', 'active', 'completed', 'failed', 'feedback_pending'],
     default: 'not_started'
   },
-  isCurrentRound: {
-    type: Boolean,
-    default: false
-  },
+  isCurrentRound: { type: Boolean, default: false },
   roundScheduledAt: Date,
   startedAt: Date,
   completedAt: Date,
-  answers: [{
-    questionId: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      required: true 
-    },
-    type: { 
-      type: String, 
-      enum: ['mcq', 'short_answer', 'coding'],
-      required: true 
-    },
-    question: { type: String, required: true },
-    points: { type: Number, required: true },
-    options: [{
-      text: { type: String },
-      isCorrect: { type: Boolean }
-    }],
-    selectedOption: { type: String },
-    writtenAnswer: String,
-    submittedCode: String,
-    isCorrect: Boolean,
-    score: Number,
-    timeSpent: Number,
-    feedback: String
-  }],
+  answers: [answerSchema],
   score: Number,
   feedback: {
-    interviewer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    interviewer: String,
     notes: String,
     technicalScore: Number,
     communicationScore: Number,
     recommendation: String
   }
-}, { timestamps: true });
+});
 
 const assessmentSubmissionSchema = new mongoose.Schema({
   assessmentId: {
@@ -95,7 +84,7 @@ const assessmentSubmissionSchema = new mongoose.Schema({
     enum: ['in_progress', 'completed', 'abandoned'],
     default: 'in_progress'
   },
-  rounds: [roundSubmissionSchema],
+  rounds: [roundSchema],
   startedAt: Date,
   interviewDate: Date,
   completedAt: Date,
