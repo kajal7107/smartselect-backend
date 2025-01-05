@@ -517,42 +517,60 @@ class AssessmentSubmissionController {
         return res.status(404).json({ error: 'Round not found' });
       }
 
-      // Prepare answers for AI assessment
-      const answersForAssessment = round.answers.map(answer => ({
-        questionId: answer.questionId,
-        type: answer.type,
-        question: answer.question,
-        expectedAnswer: answer.expectedAnswer,
-        submittedAnswer: answer.type === 'mcq' ? answer.selectedOption :
-                        answer.type === 'short_answer' ? answer.writtenAnswer :
-                        answer.submittedCode,
-        points: answer.points
-      })).filter(answer => answer.submittedAnswer); // Only assess answers that have been submitted
+      // Process answers and separate MCQs from other types
+      const mcqScores = [];
+      const answersForAIAssessment = [];
 
-      if (answersForAssessment.length === 0) {
-        return res.status(400).json({ error: 'No answers to assess' });
+      round.answers.forEach(answer => {
+        if (!answer.submittedAnswer && !answer.selectedOption) return;
+
+        if (answer.type === 'mcq') {
+          // For MCQ, directly compare selected option with correct option
+          const correctOption = answer.options.find(opt => opt.isCorrect)?.text;
+          const score = answer.selectedOption === correctOption ? answer.points : 0;
+          mcqScores.push({
+            questionId: answer.questionId,
+            score: score
+          });
+        } else {
+          // Prepare non-MCQ answers for AI assessment
+          answersForAIAssessment.push({
+            questionId: answer.questionId,
+            type: answer.type,
+            question: answer.question,
+            expectedAnswer: answer.expectedAnswer,
+            submittedAnswer: answer.type === 'short_answer' ? 
+              answer.writtenAnswer : answer.submittedCode,
+            points: answer.points
+          });
+        }
+      });
+
+      let aiScores = [];
+      if (answersForAIAssessment.length > 0) {
+        // Call AI service only for non-MCQ answers
+        const aiAssessment = await this.aiService.assessAnswers(answersForAIAssessment);
+        
+        if (!aiAssessment || !Array.isArray(aiAssessment)) {
+          throw new Error('Invalid assessment result from AI service');
+        }
+
+        aiScores = aiAssessment
+          .filter(assessment => assessment && assessment.questionId)
+          .map(assessment => ({
+            questionId: assessment.questionId,
+            score: assessment.score || 0
+          }));
       }
 
-      // Call AI service to assess answers
-      const aiAssessment = await this.aiService.assessAnswers(answersForAssessment);
-      
-      if (!aiAssessment || !Array.isArray(aiAssessment)) {
-        throw new Error('Invalid assessment result from AI service');
-      }
+      // Combine MCQ scores with AI-assessed scores
+      const allScores = [...mcqScores, ...aiScores];
 
-      // Format response to only include questionId and score, handling potential undefined values
-      const scores = aiAssessment
-        .filter(assessment => assessment && assessment.questionId) // Filter out invalid assessments
-        .map(assessment => ({
-          questionId: assessment.questionId,
-          score: assessment.score || 0 // Default to 0 if score is undefined
-        }));
-
-      if (scores.length === 0) {
+      if (allScores.length === 0) {
         return res.status(400).json({ error: 'No valid scores generated' });
       }
 
-      res.status(200).json(scores);
+      res.status(200).json(allScores);
     } catch (error) {
       console.error('Error in AI assessment:', error);
       res.status(500).json({ 
